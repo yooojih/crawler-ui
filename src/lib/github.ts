@@ -31,14 +31,23 @@ export interface Article {
 
 /** output/ ディレクトリにある CSV ファイルの一覧を返す */
 export async function listCsvFiles(): Promise<string[]> {
-  const res = await fetch(`${BASE}/contents/output`, { headers: headers(), cache: "no-store" });
-  if (!res.ok) return [];
+  const url = `${BASE}/contents/output`;
+  console.log(`[github] listCsvFiles: OWNER=${OWNER} REPO=${REPO} TOKEN=${TOKEN ? TOKEN.slice(0,8)+"..." : "未設定"}`);
+  const res = await fetch(url, { headers: headers(), cache: "no-store" });
+  console.log(`[github] listCsvFiles: status=${res.status}`);
+  if (!res.ok) {
+    const body = await res.text();
+    console.error(`[github] listCsvFiles エラー: ${body.slice(0, 200)}`);
+    return [];
+  }
   const files: { name: string }[] = await res.json();
-  return files
+  const filtered = files
     .map((f) => f.name)
     .filter((n) => n.endsWith(".csv") || n.endsWith(".xlsx"))
     .sort()
     .reverse();
+  console.log(`[github] listCsvFiles: 全${files.length}件 → CSV/xlsx ${filtered.length}件`);
+  return filtered;
 }
 
 /** 最新の CSV ファイルを取得して Article[] に変換する */
