@@ -1,3 +1,6 @@
+# 環境変数（APIキーを含むため必ずGit管理外に）
+.env.local
+
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
