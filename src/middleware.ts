@@ -19,10 +19,10 @@ export function middleware(req: NextRequest) {
     }
   }
 
-  return new NextResponse("認証が必要です", {
+  return new NextResponse("Unauthorized", {
     status: 401,
     headers: {
-      "WWW-Authenticate": 'Basic realm="all62環境イベントクローラー"',
+      "WWW-Authenticate": 'Basic realm="all62-crawler"',
     },
   });
 }
