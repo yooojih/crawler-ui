@@ -1,7 +1,62 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { CrawlerOptions } from "@/lib/github";
+
+/** ISO週番号（月曜始まり）を返す */
+function getISOWeek(d: Date): number {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  // ISO 8601: 木曜日が含まれる週を第1週とする
+  date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+}
+
+/** 次回定期実行日時（JST）を計算する。隔週日曜 13:00 JST = 04:00 UTC */
+function getNextScheduledRun(): Date {
+  // 現在時刻をUTCで取得
+  const now = new Date();
+  // 今の曜日（0=日曜）
+  const dayOfWeek = now.getUTCDay();
+  // 今週の日曜日（UTC）
+  const thisSunday = new Date(now);
+  thisSunday.setUTCDate(now.getUTCDate() - dayOfWeek);
+  thisSunday.setUTCHours(4, 0, 0, 0); // 04:00 UTC = 13:00 JST
+
+  // 候補日リスト（今週の日曜日 or 来週 or 再来週）
+  const candidates = [thisSunday, new Date(thisSunday)];
+  candidates[1].setUTCDate(thisSunday.getUTCDate() + 7);
+  const candidates2 = new Date(thisSunday);
+  candidates2.setUTCDate(thisSunday.getUTCDate() + 14);
+
+  const allCandidates = [candidates[0], candidates[1], candidates2];
+
+  for (const candidate of allCandidates) {
+    // 過去はスキップ
+    if (candidate.getTime() <= now.getTime()) continue;
+    // 偶数週のみ実行
+    if (getISOWeek(candidate) % 2 === 0) {
+      return candidate;
+    }
+  }
+  // フォールバック: 28日後の日曜日
+  const fallback = new Date(thisSunday);
+  fallback.setUTCDate(thisSunday.getUTCDate() + 28);
+  return fallback;
+}
+
+/** Date を "YYYY年M月D日（曜日）HH:MM JST" 形式にフォーマット */
+function formatJST(utcDate: Date): string {
+  const jst = new Date(utcDate.getTime() + 9 * 60 * 60 * 1000);
+  const days = ["日", "月", "火", "水", "木", "金", "土"];
+  const y = jst.getUTCFullYear();
+  const m = jst.getUTCMonth() + 1;
+  const d = jst.getUTCDate();
+  const dow = days[jst.getUTCDay()];
+  const hh = String(jst.getUTCHours()).padStart(2, "0");
+  const mm = String(jst.getUTCMinutes()).padStart(2, "0");
+  return `${y}年${m}月${d}日（${dow}）${hh}:${mm} JST`;
+}
 
 interface CheckboxOptionProps {
   label: string;
@@ -36,6 +91,11 @@ export default function RunPage() {
   });
   const [status, setStatus]   = useState<"idle" | "running" | "done" | "error">("idle");
   const [message, setMessage] = useState("");
+  const [nextRun, setNextRun] = useState<string>("");
+
+  useEffect(() => {
+    setNextRun(formatJST(getNextScheduledRun()));
+  }, []);
 
   const set = (key: keyof CrawlerOptions, value: unknown) =>
     setOptions((prev) => ({ ...prev, [key]: value }));
@@ -61,7 +121,24 @@ export default function RunPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-green-800 mb-6">クローラー実行</h1>
+      <h1 className="text-2xl font-bold text-green-800 mb-4">クローラー実行</h1>
+
+      {/* 次回定期実行スケジュール */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-2xl mb-6 flex items-start gap-3">
+        <span className="text-blue-500 text-xl mt-0.5">🕐</span>
+        <div>
+          <p className="text-sm font-semibold text-blue-800">次回の定期実行（自動）</p>
+          {nextRun ? (
+            <p className="text-base font-bold text-blue-900 mt-0.5">{nextRun}</p>
+          ) : (
+            <p className="text-sm text-blue-400 mt-0.5">計算中...</p>
+          )}
+          <p className="text-xs text-blue-600 mt-1">
+            スケジュール: 隔週日曜日 13:00 JST（偶数週のみ自動実行）
+          </p>
+        </div>
+      </div>
+
       <div className="bg-white rounded-lg shadow p-6 max-w-2xl space-y-6">
 
         {/* 固定オプション表示 */}
