@@ -137,6 +137,53 @@ export async function triggerCrawler(options: CrawlerOptions = {}): Promise<bool
   return res.ok;
 }
 
+// ─────────────────────────── Geminiモデル ────────────────────────────────────
+
+export interface ModelInfo {
+  model: string;
+}
+
+/** classifier_gemini.py から GEMINI_MODEL の現在値を取得する */
+export async function fetchCurrentModel(): Promise<ModelInfo> {
+  const res = await fetch(`${BASE}/contents/classifier_gemini.py`, {
+    headers: headers(),
+    cache: "no-store",
+  });
+  if (!res.ok) return { model: "" };
+  const data = await res.json();
+  const content = Buffer.from(data.content, "base64").toString("utf-8");
+  const match = content.match(/^GEMINI_MODEL\s*=\s*"([^"]+)"/m);
+  return { model: match?.[1] ?? "" };
+}
+
+/** classifier_gemini.py の GEMINI_MODEL を newModel に書き換えてコミットする */
+export async function updateModel(newModel: string): Promise<boolean> {
+  const getRes = await fetch(`${BASE}/contents/classifier_gemini.py`, {
+    headers: headers(),
+    cache: "no-store",
+  });
+  if (!getRes.ok) return false;
+  const data = await getRes.json();
+  const content = Buffer.from(data.content, "base64").toString("utf-8");
+
+  const updated = content.replace(
+    /^(GEMINI_MODEL\s*=\s*")[^"]+(")/m,
+    `$1${newModel}$2`
+  );
+  if (updated === content) return false;
+
+  const putRes = await fetch(`${BASE}/contents/classifier_gemini.py`, {
+    method: "PUT",
+    headers: { ...headers(), "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message: `fix: Gemini モデルを ${newModel} に更新 (Web UI)`,
+      content: Buffer.from(updated).toString("base64"),
+      sha: data.sha,
+    }),
+  });
+  return putRes.ok;
+}
+
 // ─────────────────────────── sites.json ──────────────────────────────────────
 
 export interface SiteEntry {

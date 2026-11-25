@@ -25,3 +25,31 @@ export async function GET(
     },
   });
 }
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ filename: string }> }
+) {
+  const { filename } = await params;
+  const BASE = `https://api.github.com/repos/${OWNER}/${REPO}`;
+  const headers = {
+    Authorization: `Bearer ${TOKEN}`,
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+  };
+
+  const metaRes = await fetch(`${BASE}/contents/logs/${filename}`, { headers, cache: "no-store" });
+  if (!metaRes.ok) {
+    return NextResponse.json({ error: "ファイルが見つかりません" }, { status: 404 });
+  }
+  const { sha } = await metaRes.json();
+
+  const delRes = await fetch(`${BASE}/contents/logs/${filename}`, {
+    method: "DELETE",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({ message: `logs/${filename} を削除 (Web UI)`, sha }),
+  });
+
+  if (delRes.ok) return NextResponse.json({ message: "削除しました" });
+  return NextResponse.json({ message: "削除に失敗しました" }, { status: 500 });
+}

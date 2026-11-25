@@ -7,6 +7,7 @@ export default function DownloadPage() {
   const [logFiles, setLogFiles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [deletingLog, setDeletingLog] = useState<string | null>(null);
 
   const loadFiles = () => {
     setLoading(true);
@@ -32,6 +33,18 @@ export default function DownloadPage() {
     const data = await res.json();
     alert(data.message);
     setDeleting(null);
+    if (res.ok) loadFiles();
+  };
+
+  const handleDeleteLog = async (filename: string) => {
+    if (!confirm(`「${filename}」を削除しますか？`)) return;
+    setDeletingLog(filename);
+    const res = await fetch(`/api/logs/${encodeURIComponent(filename)}`, {
+      method: "DELETE",
+    });
+    const data = await res.json();
+    alert(data.message);
+    setDeletingLog(null);
     if (res.ok) loadFiles();
   };
 
@@ -103,14 +116,14 @@ export default function DownloadPage() {
             <thead className="bg-gray-50 text-gray-700">
               <tr>
                 <th className="text-left px-4 py-3">ファイル名</th>
-                <th className="text-left px-4 py-3 w-32"></th>
+                <th className="text-left px-4 py-3 w-40"></th>
               </tr>
             </thead>
             <tbody>
               {logFiles.map((f) => (
                 <tr key={f} className="border-t hover:bg-gray-50">
                   <td className="px-4 py-3">{f}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 flex gap-3">
                     <a
                       href={`/api/logs/${encodeURIComponent(f)}`}
                       download={f}
@@ -118,6 +131,13 @@ export default function DownloadPage() {
                     >
                       ダウンロード
                     </a>
+                    <button
+                      onClick={() => handleDeleteLog(f)}
+                      disabled={deletingLog === f}
+                      className="text-red-500 hover:underline disabled:opacity-50"
+                    >
+                      {deletingLog === f ? "削除中..." : "削除"}
+                    </button>
                   </td>
                 </tr>
               ))}

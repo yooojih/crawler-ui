@@ -93,12 +93,46 @@ export default function RunPage() {
   const [message, setMessage] = useState("");
   const [nextRun, setNextRun] = useState<string>("");
 
+  // モデル変更
+  const [currentModel, setCurrentModel] = useState<string>("");
+  const [inputModel,   setInputModel]   = useState<string>("");
+  const [modelStatus,  setModelStatus]  = useState<"idle" | "saving" | "done" | "error">("idle");
+  const [modelMessage, setModelMessage] = useState("");
+
   useEffect(() => {
     setNextRun(formatJST(getNextScheduledRun()));
+    // 現在のモデルを取得
+    fetch("/api/model")
+      .then((r) => r.json())
+      .then((d) => {
+        setCurrentModel(d.model ?? "");
+        setInputModel(d.model ?? "");
+      })
+      .catch(() => {});
   }, []);
 
   const set = (key: keyof CrawlerOptions, value: unknown) =>
     setOptions((prev) => ({ ...prev, [key]: value }));
+
+  const handleModelSave = async () => {
+    if (!inputModel.trim() || inputModel.trim() === currentModel) return;
+    setModelStatus("saving");
+    setModelMessage("");
+    const res = await fetch("/api/model", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: inputModel.trim() }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setCurrentModel(inputModel.trim());
+      setModelMessage(data.message);
+      setModelStatus("done");
+    } else {
+      setModelMessage(data.error ?? "エラーが発生しました");
+      setModelStatus("error");
+    }
+  };
 
   const handleRun = async () => {
     setStatus("running");
@@ -200,6 +234,55 @@ export default function RunPage() {
               checked={!!options.force}
               onChange={(v) => set("force", v)}
             />
+          </div>
+        </div>
+
+        {/* Geminiモデル変更 */}
+        <div>
+          <h2 className="text-sm font-semibold text-gray-700 mb-3 border-b pb-1">
+            🤖 Geminiモデル
+          </h2>
+          <div className="space-y-2">
+            <div className="text-xs text-gray-500">
+              現在のモデル:{" "}
+              {currentModel ? (
+                <span className="font-mono font-semibold text-green-700">{currentModel}</span>
+              ) : (
+                <span className="text-gray-400">読み込み中...</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={inputModel}
+                onChange={(e) => {
+                  setInputModel(e.target.value);
+                  setModelStatus("idle");
+                  setModelMessage("");
+                }}
+                placeholder="例: gemini-3.1-flash-lite"
+                className="border rounded px-3 py-1.5 text-sm font-mono w-64"
+              />
+              <button
+                onClick={handleModelSave}
+                disabled={
+                  modelStatus === "saving" ||
+                  !inputModel.trim() ||
+                  inputModel.trim() === currentModel
+                }
+                className="bg-green-700 text-white px-4 py-1.5 rounded hover:bg-green-800 disabled:opacity-40 text-sm"
+              >
+                {modelStatus === "saving" ? "保存中..." : "変更する"}
+              </button>
+            </div>
+            {modelMessage && (
+              <p className={`text-xs ${modelStatus === "done" ? "text-green-700" : "text-red-600"}`}>
+                {modelStatus === "done" ? "✅ " : "❌ "}{modelMessage}
+              </p>
+            )}
+            <p className="text-xs text-gray-400">
+              変更するとGitHubにコミットされ、次回実行から反映されます。
+            </p>
           </div>
         </div>
 
