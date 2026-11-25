@@ -304,7 +304,7 @@ export default function RunPage() {
             <p className="mt-1 text-xs text-gray-500">
               進捗は{" "}
               <a
-                href="https://github.com/yooojih/env-crawler-gemini/actions"
+                href="https://github.com/eic-git/env-crawler-gemini/actions"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-green-700 underline"
